@@ -1,4 +1,4 @@
-# <img src="./assets/images/card.png" alt="King of Hearts" width="30"> MatFyz Blackjack
+# <img src="./assets/images/card.png" alt="card" width="30"> MatFyz Blackjack
 
 **Problem Description**: People would like to play the classical game of blackjack without going to a casino
 or registering somewhere online and experience the thrill of gambling without losing any money.
@@ -40,3 +40,4 @@ features will include clickable chips for betting, action buttons for hitting, s
 to keyboard presses), basic card moving and flipping animations, sound effects, and a button to view the
 Matplotlib balance history graph.
 
+<img src="./assets/sprites/table.jpg" alt="table" width="400">
