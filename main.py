@@ -7,6 +7,7 @@ pygame.display.set_caption("MatFyz Blackjack")
 icon = pygame.image.load("assets/images/card.png")
 pygame.display.set_icon(icon)
 
+# change the taskbar icon from pygame
 if sys.platform == "win32":
     myappid = "marmatakis.matfyzblackjack.0.0"
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
