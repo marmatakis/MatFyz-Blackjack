@@ -6,7 +6,6 @@
 
 <img src="./assets/sprites/table.jpg" alt="table" width="400">
 
-#
 
 ## Project goal:
 **The goal of the project is to implement a desktop version of the game Blackjack using Pygame.**
