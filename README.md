@@ -17,5 +17,6 @@ The project will feature a 2D GUI built with Pygame and styled in MatFyz colors 
 ![Pygame](https://img.shields.io/badge/Pygame-2E8B57?style=flat-square)
 ![sys](https://img.shields.io/badge/sys-306998?style=flat-square)
 ![ctypes](https://img.shields.io/badge/ctypes-306998?style=flat-square)
+![random](https://img.shields.io/badge/random-306998?style=flat-square)
 
 **No AI Tools used to generate any code or documentation for this project, purely human-written.**
