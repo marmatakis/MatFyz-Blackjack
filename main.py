@@ -93,13 +93,13 @@ class Hand:
         self.setTotal()
         
     def addCard(self, card: Card):
-        self.cards.append(Card)
+        self.cards.append(card)
         self.setTotal()
             
     def setTotal(self):
+        self.total = 0
         aces = 0
         for card in self.cards:
-            print(card.name)
             cardVal = card.value
             if cardVal != -1:
                 self.total += cardVal
@@ -148,9 +148,9 @@ class Game:
     def __init__(self):
         self.status = 'waiting'
         self.balance = 1000
-        self.shoe = None
-        self.dealerHand = None
-        self.playerHand = None
+        self.shoe = Shoe(6)
+        self.dealerHand = Hand(cards=[])
+        self.playerHand = Hand(cards=[])
         self.handBet = 0
         
     def overrideBalance(self, amount: int):
@@ -160,7 +160,7 @@ class Game:
         
     def startRound(self):
         assert self.status == 'waiting'
-        self.shoe = Shoe(6)
+        self.playerHand, self.dealerHand = Hand(cards=[]), Hand(cards=[])
         self.status = 'betting'
         
     def setHandBet(self, amount: int):
@@ -172,54 +172,82 @@ class Game:
     
     def playerTurn(self):
         assert self.status == 'betting'
+        self.balance -= self.handBet
         print(f'Hand bet: {self.handBet}')
         
         self.status = 'playerTurn'
         self.playerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
         handCards = self.playerHand.cards
         
-        print(f'Dealt cards: {handCards[0].name} {handCards[1].name}')
-        print(f'Hand total: {self.playerHand.total}')
+        print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
     
     def hit(self):
         assert self.status == 'playerTurn'
         newCard = self.shoe.dealCard()
         self.playerHand.addCard(newCard)
-        gameStatus = self.checkGameStatus()
-        print(f'Dealt cards: {newCard.name}')
-        print(f'Hand total: {self.playerHand.total}')
-    
+        print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
+        if self.playerHand.total <= 21:
+            return
+        
+        self.checkGameStatus()
+            
+    def stand(self):
+        assert self.status == 'playerTurn'
+        self.status = 'dealerTurn'
+        if not self.checkGameStatus():
+            return
+        self.dealerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
+        print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
+        while self.dealerHand.total <= 16:
+            self.dealerHand.addCard(self.shoe.dealCard())
+            print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
+        self.checkGameStatus()
     
     def payoutWinnings(self, bet: int, condition: str):
+        self.status = 'payout'
         match condition:
             case 'blackjack':
+                print(f'Blackjack! +{bet * 3 / 2}, Balance: {game.balance + bet + bet * 3 / 2}')
                 self.addToBalance(bet + bet * 3 / 2)
             case 'win':
+                print(f'Win +{bet}, Balance: {game.balance + 2*bet}')
                 self.addToBalance(2 * bet)
             case 'doubleWin':
+                print(f'Double win +{2 * bet}, Balance: {game.balance + 4*bet}')
                 self.addToBalance(4 * bet)
             case 'tie':
+                print(f'Tie! +0, Balance: {game.balance + bet}')
                 self.addToBalance(bet)
             case 'loss':
+                print(f'Loss:( Balance: {game.balance}')
                 pass
+        self.status = 'waiting'
         
     def finishRound(self, condition):
+        self.payoutWinnings(self.handBet, condition)
         self.status = 'waiting'
     
     def checkGameStatus(self):
         playerTotal = self.playerHand.total
         dealerTotal = self.dealerHand.total
         
+        if dealerTotal != 0:
+            print(f'player {playerTotal} dealer {dealerTotal}')
+        
+        if playerTotal == 21 and dealerTotal != 21 and len(self.playerHand.cards) == 2:
+            self.finishRound('blackjack')
+            return False
+        if playerTotal == dealerTotal:
+            self.finishRound('tie')
+            return False
         if playerTotal > 21:
             self.finishRound('loss')
             return False
         if dealerTotal > 21:
             self.finishRound('win')
             return False
-        
         if dealerTotal == 0:
             return True
-        
         if playerTotal > dealerTotal:
             self.finishRound('win')
             return False
@@ -227,11 +255,28 @@ class Game:
             self.finishRound('loss')
             return False
     
+def cardsString(hand: Hand):
+    s = ""
+    for card in hand.cards:
+        s += card.name + " "
+    return s
 
 game = Game()
-game.startRound()
-game.setHandBet(100)
-game.playerTurn()
+print(f'Your balance: {game.balance}')
+while game.balance > 0:
+    s = input("---- Start new round? (h) ")
+    if s != "h":
+        exit()
+    game.startRound()
+    game.setHandBet(100)
+    game.playerTurn()
+    
+    while game.status == 'playerTurn' and game.playerHand.total <= 21:
+        move = input("Enter move (h/s): ")
+        if move == "h":
+            game.hit()
+        else:
+            game.stand()
 
 
 clock = pygame.time.Clock()
