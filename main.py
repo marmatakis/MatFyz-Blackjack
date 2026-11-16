@@ -100,16 +100,19 @@ class Game:
         
     def setWindowSettings(self):
         pygame.display.set_caption('MatFyz Blackjack')
-        pygame.display.set_icon(pygame.image.load('assets/images/card.png'))
+        pygame.display.set_icon(pygame.image.load('assets/sprites/chip.png'))
         
         if sys.platform == 'win32':
             myappid = 'marmatakis.matfyzblackjack.0.0'
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-            
+
             try:
                 ctypes.windll.user32.SetProcessDPIAware()
+                dpi = ctypes.windll.user32.GetDpiForSystem()
+                return dpi / 96.0
             except AttributeError:
                 pass
+        return 1.0
     
     def quit(self):
         pygame.quit()
@@ -214,10 +217,10 @@ class Game:
     
 class Texts:
     class Fonts:
-        def __init__(self):
-            self.fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', 16)
-            self.fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', 25)
-            self.fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', 28)
+        def __init__(self, UI):
+            self.fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', UI.s(16))
+            self.fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', UI.s(25))
+            self.fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', UI.s(28))
     class Text:
         def __init__(self, text, font : pygame.font.Font, color, centerx, top):
             self.text = text
@@ -247,26 +250,51 @@ class Texts:
 
 class UI:
     def __init__(self):
-        self.width, self.height = 500, 500
+        if sys.platform == 'win32':
+            try:
+                self.scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
+            except AttributeError:
+                self.scale = 1.0
+        else:
+            self.scale = 1.0
+        
+        self.base_width, self.base_height = 500, 500
+        self.width = int(round(self.base_width * self.scale))
+        self.height = int(round(self.base_height * self.scale))
         self.screen = pygame.display.set_mode((self.width, self.height))
+        
         self.background = pygame.image.load('assets/sprites/table.jpg').convert()
-        self.background = pygame.transform.scale(self.background, (self.width, self.height))
+        self.background = pygame.transform.smoothscale(self.background, (self.width, self.height))
         
-        self.fonts = Texts.Fonts()
+        self.fonts = Texts.Fonts(self)
         
+        # TODO - implement same system for Sprites, not only Texts
         self.texts = Texts(
             [
-                Texts.Text('900$', self.fonts.fontSemiBold, (237, 218, 53), self.width / 2, 455),
-                Texts.Text('18', self.fonts.fontBold, (255, 255, 255), self.width / 2, 50),
-                Texts.Text('DEALER', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - 72, 54),
-                Texts.Text('9', self.fonts.fontBold, (255, 255, 255), self.width / 2, 270),
-                Texts.Text('YOU', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - 46, 274),
+                Texts.Text('900$', self.fonts.fontSemiBold, (237, 218, 53), self.width / 2, self.s(460)),
+                Texts.Text('18', self.fonts.fontBold, (255, 255, 255), self.width / 2 + self.s(23), self.s(35)),
+                Texts.Text('DEALER', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(49), self.s(39)),
+                Texts.Text('9', self.fonts.fontBold, (255, 255, 255), self.width / 2 + self.s(23), self.s(250)),
+                Texts.Text('YOU', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(23), self.s(254)),
             ], 
             screen = self.screen
         )
     
+    # Multiply the value 1-500 to the calculated scale
+    def s(self, val):
+        return int(round(val * self.scale))
+    
+    # Render the UI wrapper function
     def render(self):
         self.screen.blit(self.background, (0, 0))
+        chip = pygame.image.load('assets/sprites/chip.png')
+        chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
+        self.screen.blit(chip, (self.s(50), self.s(50)))
+        
+        card = pygame.image.load('assets/sprites/card.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.width / 2, self.s(300)))
+        
         self.texts.render()
         pygame.display.flip()
     
