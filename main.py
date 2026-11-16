@@ -85,12 +85,17 @@ class Game:
     def run(self):
         self.clock = pygame.time.Clock()
         self.running = True
+        pic = False
         while self.running:
             self.clock.tick(30)
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
             self.ui.render()
+            if not pic:
+                pygame.image.save(self.ui.screen, f"screenshot.png")
+                pic = True
         self.quit()
         
     def setWindowSettings(self):

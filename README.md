@@ -4,7 +4,7 @@
 ![Top Language](https://img.shields.io/github/languages/top/marmatakis/MatFyz-Blackjack?style=flat-square)
 ![License](https://img.shields.io/github/license/marmatakis/MatFyz-Blackjack?style=flat-square)
 
-<img src="./assets/sprites/table.jpg" alt="table" width="400">
+<img src="./assets/screenshots/screenshot.png" alt="table" width="400">
 
 
 ## Project goal:
