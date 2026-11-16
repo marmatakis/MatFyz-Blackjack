@@ -3,81 +3,6 @@ import sys
 import ctypes
 import random
 
-pygame.init()
-pygame.display.set_caption('MatFyz Blackjack')
-icon = pygame.image.load('assets/images/card.png')
-pygame.display.set_icon(icon)
-
-
-if sys.platform == 'win32':
-    # change the taskbar icon from pygame by changing app id
-    myappid = 'marmatakis.matfyzblackjack.0.0'
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-    
-    try:
-        ctypes.windll.user32.SetProcessDPIAware()
-    except AttributeError:
-        pass
-
-width, height = 500, 500
-screen = pygame.display.set_mode((width, height))
-background = pygame.image.load('assets/sprites/table.jpg').convert()
-background = pygame.transform.scale(background, (width, height))
-
-fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', 16)
-fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', 25)
-fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', 28)
-
-testText = fontSemiBold.render(
-    '900$',
-    True,
-    (237, 218, 53)
-)
-testTextSurface = testText.get_rect(
-    centerx=width / 2,
-    top=455
-)
-
-# dealer's texts
-dealerCountText = fontBold.render(
-    '18',
-    True,
-    (255, 255, 255)
-)
-dealerCountTextSurface = dealerCountText.get_rect(
-    centerx=width / 2,
-    top=50
-)
-dealerText = fontRegular.render(
-    'DEALER',
-    True,
-    (255, 255, 255)
-)
-dealerTextSurface = dealerText.get_rect(
-    centerx=width / 2 - 72,
-    top=54
-)
-
-# player's texts
-playerCountText = fontBold.render(
-    '9', 
-    True, 
-    (255, 255, 255)
-)
-playerCountTextSurface = playerCountText.get_rect(
-    centerx = width / 2,
-    top = 270
-)
-playerText = fontRegular.render(
-    'YOU',
-    True,
-    (255, 255, 255)
-)
-playerTextSurface = playerText.get_rect(
-    centerx = (width / 2) - 46,
-    top = 274
-)
-
 suits = ['H', 'D', 'S', 'C']
 cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': -1}
 
@@ -153,8 +78,37 @@ class Game:
         self.playerHand = Hand(cards=[])
         self.handBet = 0
         
-    def overrideBalance(self, amount: int):
-        self.balance = amount
+        pygame.init()
+        self.setWindowSettings()
+        self.ui = UI()
+    
+    def run(self):
+        self.clock = pygame.time.Clock()
+        self.running = True
+        while self.running:
+            self.clock.tick(30)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+            self.ui.render()
+        self.quit()
+        
+    def setWindowSettings(self):
+        pygame.display.set_caption('MatFyz Blackjack')
+        pygame.display.set_icon(pygame.image.load('assets/images/card.png'))
+        
+        if sys.platform == 'win32':
+            myappid = 'marmatakis.matfyzblackjack.0.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+            
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
+    
+    def quit(self):
+        pygame.quit()
+    
     def addToBalance(self, amount: int):
         self.balance += amount
         
@@ -168,7 +122,6 @@ class Game:
         if self.balance < self.handBet:
             return
         self.handBet = amount
-        
     
     def playerTurn(self):
         assert self.status == 'betting'
@@ -177,7 +130,6 @@ class Game:
         
         self.status = 'playerTurn'
         self.playerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
-        handCards = self.playerHand.cards
         
         print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
     
@@ -255,6 +207,64 @@ class Game:
             self.finishRound('loss')
             return False
     
+class Texts:
+    class Fonts:
+        def __init__(self):
+            self.fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', 16)
+            self.fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', 25)
+            self.fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', 28)
+    class Text:
+        def __init__(self, text, font : pygame.font.Font, color, centerx, top):
+            self.text = text
+            self.color = color
+            self.centerx = centerx
+            self.top = top
+            self.textObj = font.render(
+                text,
+                True,
+                color
+            )
+            self.textSurface = self.textObj.get_rect(
+                centerx = centerx,
+                top = top
+            )
+    
+    def __init__(self, texts: list[Text], screen):
+        self.texts = texts
+        self.screen = screen
+        
+    def addText(self, text: Text):
+        self.texts.append(text)
+    
+    def render(self):
+        for text in self.texts:
+            self.screen.blit(text.textObj, text.textSurface)
+
+class UI:
+    def __init__(self):
+        self.width, self.height = 500, 500
+        self.screen = pygame.display.set_mode((self.width, self.height))
+        self.background = pygame.image.load('assets/sprites/table.jpg').convert()
+        self.background = pygame.transform.scale(self.background, (self.width, self.height))
+        
+        self.fonts = Texts.Fonts()
+        
+        self.texts = Texts(
+            [
+                Texts.Text('900$', self.fonts.fontSemiBold, (237, 218, 53), self.width / 2, 455),
+                Texts.Text('18', self.fonts.fontBold, (255, 255, 255), self.width / 2, 50),
+                Texts.Text('DEALER', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - 72, 54),
+                Texts.Text('9', self.fonts.fontBold, (255, 255, 255), self.width / 2, 270),
+                Texts.Text('YOU', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - 46, 274),
+            ], 
+            screen = self.screen
+        )
+    
+    def render(self):
+        self.screen.blit(self.background, (0, 0))
+        self.texts.render()
+        pygame.display.flip()
+    
 def cardsString(hand: Hand):
     s = ""
     for card in hand.cards:
@@ -262,6 +272,8 @@ def cardsString(hand: Hand):
     return s
 
 game = Game()
+game.run()
+
 print(f'Your balance: {game.balance}')
 while game.balance > 0:
     s = input("---- Start new round? (h) ")
@@ -277,27 +289,3 @@ while game.balance > 0:
             game.hit()
         else:
             game.stand()
-
-
-clock = pygame.time.Clock()
-
-running = True
-while running:
-    clock.tick(30)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    screen.blit(background, (0, 0))
-    screen.blit(testText, testTextSurface)
-    
-    screen.blit(dealerCountText, dealerCountTextSurface)
-    screen.blit(dealerText, dealerTextSurface)
-    
-    screen.blit(playerCountText, playerCountTextSurface)
-    screen.blit(playerText, playerTextSurface)
-    
-    pygame.display.flip()
-    
-pygame.quit()
