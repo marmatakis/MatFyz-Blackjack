@@ -2,9 +2,12 @@ import pygame
 import sys
 import ctypes
 import random
+import time
 
 suits = ['H', 'D', 'S', 'C']
-cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': -1}
+cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 
+            #   'J': 10, 'Q': 10, 'K': 10, 
+              'A': -1}
 
 class Card:
     def __init__(self, name: str):
@@ -80,7 +83,7 @@ class Game:
         
         pygame.init()
         self.setWindowSettings()
-        self.ui = UI()
+        self.ui = UI(self)
     
     def run(self):
         self.clock = pygame.time.Clock()
@@ -92,6 +95,18 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.ui.hitRect.collidepoint(event.pos):
+                        if self.status == 'waiting':
+                            self.startRound()
+                            self.setHandBet(100)
+                            self.playerTurn()
+                        elif self.status == 'playerTurn':
+                            self.hit()
+                    if self.ui.standRect.collidepoint(event.pos):
+                        if self.status == 'playerTurn':
+                            self.stand()
             self.ui.render()
             if not pic:
                 pygame.image.save(self.ui.screen, f"screenshot.png")
@@ -100,7 +115,7 @@ class Game:
         
     def setWindowSettings(self):
         pygame.display.set_caption('MatFyz Blackjack')
-        pygame.display.set_icon(pygame.image.load('assets/sprites/chip.png'))
+        pygame.display.set_icon(pygame.image.load('assets/sprites/chips/red.png'))
         
         if sys.platform == 'win32':
             myappid = 'marmatakis.matfyzblackjack.0.0'
@@ -159,7 +174,9 @@ class Game:
         self.dealerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
         print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
         while self.dealerHand.total <= 16:
+            time.sleep(1)
             self.dealerHand.addCard(self.shoe.dealCard())
+            self.ui.render()
             print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
         self.checkGameStatus()
     
@@ -237,19 +254,23 @@ class Texts:
                 top = top
             )
     
-    def __init__(self, texts: list[Text], screen):
+    def __init__(self, texts: list[Text], screen, ui):
         self.texts = texts
         self.screen = screen
+        self.ui = ui
         
     def addText(self, text: Text):
         self.texts.append(text)
     
     def render(self):
-        for text in self.texts:
+        newTexts = self.texts.copy()
+        newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(250)))
+        newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(35)))
+        for text in newTexts:
             self.screen.blit(text.textObj, text.textSurface)
 
 class UI:
-    def __init__(self):
+    def __init__(self, game):
         if sys.platform == 'win32':
             try:
                 self.scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
@@ -257,6 +278,8 @@ class UI:
                 self.scale = 1.0
         else:
             self.scale = 1.0
+            
+        self.game = game
         
         self.base_width, self.base_height = 500, 500
         self.width = int(round(self.base_width * self.scale))
@@ -272,12 +295,11 @@ class UI:
         self.texts = Texts(
             [
                 Texts.Text('900$', self.fonts.fontSemiBold, (237, 218, 53), self.width / 2, self.s(460)),
-                Texts.Text('18', self.fonts.fontBold, (255, 255, 255), self.width / 2 + self.s(23), self.s(35)),
                 Texts.Text('DEALER', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(49), self.s(39)),
-                Texts.Text('9', self.fonts.fontBold, (255, 255, 255), self.width / 2 + self.s(23), self.s(250)),
                 Texts.Text('YOU', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(23), self.s(254)),
             ], 
-            screen = self.screen
+            screen = self.screen,
+            ui = self
         )
     
     # Multiply the value 1-500 to the calculated scale
@@ -287,13 +309,47 @@ class UI:
     # Render the UI wrapper function
     def render(self):
         self.screen.blit(self.background, (0, 0))
-        chip = pygame.image.load('assets/sprites/chip.png')
-        chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
-        self.screen.blit(chip, (self.s(50), self.s(50)))
+        # chip = pygame.image.load('assets/sprites/chips/red.png')
+        # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
+        # self.screen.blit(chip, (self.s(50), self.s(50)))
         
-        card = pygame.image.load('assets/sprites/card.png')
+        # chip = pygame.image.load('assets/sprites/chips/purple.png')
+        # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
+        # self.screen.blit(chip, (self.s(50), self.s(135)))
+        # chip = pygame.image.load('assets/sprites/chips/yellow.png')
+        # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
+        # self.screen.blit(chip, (self.s(50), self.s(220)))
+        # chip = pygame.image.load('assets/sprites/chips/green.png')
+        # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
+        # self.screen.blit(chip, (self.s(50), self.s(305)))     
+        
+        card = pygame.image.load('assets/sprites/cards/SA.png')
         card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.width / 2, self.s(300)))
+        self.screen.blit(card, (self.width / 2, self.s(100)))
+        
+        card = pygame.image.load('assets/sprites/cards/back_red.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.width / 2 - self.s(90), self.s(100)))
+        
+        if len(self.game.playerHand.cards) > 0:
+            card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[0].name}.png')
+            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+            self.screen.blit(card, (self.width / 2, self.s(300)))
+            
+            card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[1].name}.png')
+            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(300)))
+            
+  
+        hitBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
+        hitBtn = pygame.transform.smoothscale(hitBtn, (self.s(150), self.s(35)))
+        self.hitRect = hitBtn.get_rect(topleft=(self.width / 2, self.s(450)))
+        self.screen.blit(hitBtn, self.hitRect)
+        
+        standBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
+        standBtn = pygame.transform.smoothscale(standBtn, (self.s(150), self.s(35)))
+        self.standRect = hitBtn.get_rect(topleft=(self.width / 2 - self.s(150), self.s(450)))
+        self.screen.blit(standBtn, self.standRect)
         
         self.texts.render()
         pygame.display.flip()
@@ -307,18 +363,18 @@ def cardsString(hand: Hand):
 game = Game()
 game.run()
 
-print(f'Your balance: {game.balance}')
-while game.balance > 0:
-    s = input("---- Start new round? (h) ")
-    if s != "h":
-        exit()
-    game.startRound()
-    game.setHandBet(100)
-    game.playerTurn()
+# print(f'Your balance: {game.balance}')
+# while game.balance > 0:
+#     s = input("---- Start new round? (h) ")
+#     if s != "h":
+#         exit()
+#     game.startRound()
+#     game.setHandBet(100)
+#     game.playerTurn()
     
-    while game.status == 'playerTurn' and game.playerHand.total <= 21:
-        move = input("Enter move (h/s): ")
-        if move == "h":
-            game.hit()
-        else:
-            game.stand()
+#     while game.status == 'playerTurn' and game.playerHand.total <= 21:
+#         move = input("Enter move (h/s): ")
+#         if move == "h":
+#             game.hit()
+#         else:
+#             game.stand()

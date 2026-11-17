@@ -1,4 +1,4 @@
-# <img src="./assets/sprites/chip.png" alt="table" width="23"> <img src="./assets/sprites/card.png" alt="table" width="20"> MatFyz Blackjack
+# <img src="./assets/sprites/chips/red.png" alt="table" width="23"> <img src="./assets/sprites/cards/DA.png" alt="table" width="20"> MatFyz Blackjack
 ![Last Commit](https://img.shields.io/github/last-commit/marmatakis/MatFyz-Blackjack?style=flat-square)
 ![Repo Size](https://img.shields.io/github/repo-size/marmatakis/MatFyz-Blackjack?style=flat-square)
 ![Top Language](https://img.shields.io/github/languages/top/marmatakis/MatFyz-Blackjack?style=flat-square)
