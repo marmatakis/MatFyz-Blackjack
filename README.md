@@ -15,8 +15,11 @@ The project will feature a 2D GUI built with Pygame and styled in MatFyz colors 
 ## Libraries Used
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Pygame](https://img.shields.io/badge/Pygame-2E8B57?style=flat-square)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square)
+![OOP](https://img.shields.io/badge/OOP-4B8BBE?style=flat-square)
 ![sys](https://img.shields.io/badge/sys-306998?style=flat-square)
 ![ctypes](https://img.shields.io/badge/ctypes-306998?style=flat-square)
 ![random](https://img.shields.io/badge/random-306998?style=flat-square)
+![time](https://img.shields.io/badge/time-306998?style=flat-square)
 
 **No AI Tools used to generate any code or documentation for this project, purely human-written.**

@@ -15,9 +15,10 @@ class Card:
         self.name = name
 
 class Hand:
-    def __init__(self, cards: list[Card]):
+    def __init__(self, cards: list[Card], firstCardHidden = False):
         self.cards = cards
         self.total = 0
+        self.firstCardHidden = firstCardHidden
         self.setTotal()
         
     def addCard(self, card: Card):
@@ -27,7 +28,10 @@ class Hand:
     def setTotal(self):
         self.total = 0
         aces = 0
-        for card in self.cards:
+        
+        for i, card in enumerate(self.cards):
+            if self.firstCardHidden and i == 0:
+                continue
             cardVal = card.value
             if cardVal != -1:
                 self.total += cardVal
@@ -39,6 +43,10 @@ class Hand:
                 self.total += 11
             else:
                 self.total += 1
+        
+    def revealCard(self):
+        self.firstCardHidden = False
+        self.setTotal()
 
 class Deck:
     def __init__(self):
@@ -71,7 +79,9 @@ class Shoe:
     
     def shuffleShoe(self):
         random.shuffle(self.cards)
-    
+
+# TODO - figure out the proper positioning/order of game, UI, etc
+# it is a bit awkward how UI is at the end and game is at the very top
 class Game:
     def __init__(self):
         self.status = 'waiting'
@@ -80,10 +90,24 @@ class Game:
         self.dealerHand = Hand(cards=[])
         self.playerHand = Hand(cards=[])
         self.handBet = 0
+        self.timer = 0
         
         pygame.init()
         self.setWindowSettings()
         self.ui = UI(self)
+    
+    
+    def handleHit(self):
+        if self.status == 'waiting':
+            self.startRound()
+            self.setHandBet(100)
+            self.playerTurn()
+        elif self.status == 'playerTurn':
+            self.hit()
+    
+    def handleStand(self):
+        if self.status == 'playerTurn':
+            self.stand()
     
     def run(self):
         self.clock = pygame.time.Clock()
@@ -92,21 +116,38 @@ class Game:
         while self.running:
             self.clock.tick(30)
             
+            if self.status == 'dealAnimation' and self.timer + 1.5 < time.time():
+                self.dealerHand.addCard(self.shoe.dealCard())
+                print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
+                self.status = 'playerTurn'
+                self.stand()
+            
+            if self.status == 'hitAnimation' and self.timer + 0.5 < time.time():
+                newCard = self.shoe.dealCard()
+                self.playerHand.addCard(newCard)
+                print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
+                self.status = 'playerTurn'
+                if self.playerHand.total > 21:
+                    self.checkGameStatus()
+            
+            if self.status == 'finishAnimation' and self.timer + 2 < time.time():
+                self.status = 'waiting'
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
                 
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.ui.hitRect.collidepoint(event.pos):
-                        if self.status == 'waiting':
-                            self.startRound()
-                            self.setHandBet(100)
-                            self.playerTurn()
-                        elif self.status == 'playerTurn':
-                            self.hit()
-                    if self.ui.standRect.collidepoint(event.pos):
-                        if self.status == 'playerTurn':
-                            self.stand()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_h:
+                        print('pressed h')
+                        self.handleHit()
+                    elif event.key == pygame.K_s:
+                        self.handleStand()
+                # if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                #     # TODO - review this logic and move it to a separate function, too much indentation
+                #     if self.ui.hitRect.collidepoint(event.pos):
+                #     if self.ui.standRect.collidepoint(event.pos):
+
             self.ui.render()
             if not pic:
                 pygame.image.save(self.ui.screen, f"screenshot.png")
@@ -150,7 +191,8 @@ class Game:
         assert self.status == 'betting'
         self.balance -= self.handBet
         print(f'Hand bet: {self.handBet}')
-        
+        self.dealerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()], firstCardHidden=True)
+        print(f'Dealer card: {self.dealerHand.cards[0]} total {self.dealerHand.total}')
         self.status = 'playerTurn'
         self.playerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
         
@@ -158,30 +200,25 @@ class Game:
     
     def hit(self):
         assert self.status == 'playerTurn'
-        newCard = self.shoe.dealCard()
-        self.playerHand.addCard(newCard)
-        print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
-        if self.playerHand.total <= 21:
-            return
-        
-        self.checkGameStatus()
+        self.status = 'hitAnimation'
+        self.timer = time.time()
             
     def stand(self):
         assert self.status == 'playerTurn'
         self.status = 'dealerTurn'
-        if not self.checkGameStatus():
-            return
-        self.dealerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
-        print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
-        while self.dealerHand.total <= 16:
-            time.sleep(1)
-            self.dealerHand.addCard(self.shoe.dealCard())
-            self.ui.render()
-            print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
-        self.checkGameStatus()
+        self.dealerHand.revealCard()
+        self.ui.render()
+  
+        # implementation of house/dealer rules - stand on 17+, hit on <16
+        if self.dealerHand.total <= 16:
+            self.status = 'dealAnimation'
+            self.timer = time.time()
+        else:
+            self.checkGameStatus()
     
     def payoutWinnings(self, bet: int, condition: str):
         self.status = 'payout'
+        # TODO - remove print statements everywhere here and display everything in the interface
         match condition:
             case 'blackjack':
                 print(f'Blackjack! +{bet * 3 / 2}, Balance: {game.balance + bet + bet * 3 / 2}')
@@ -202,7 +239,9 @@ class Game:
         
     def finishRound(self, condition):
         self.payoutWinnings(self.handBet, condition)
-        self.status = 'waiting'
+        self.status = 'finishAnimation'
+        self.timer = time.time()
+        
     
     def checkGameStatus(self):
         playerTotal = self.playerHand.total
@@ -211,6 +250,7 @@ class Game:
         if dealerTotal != 0:
             print(f'player {playerTotal} dealer {dealerTotal}')
         
+        # TODO - this logic is yandere dev type, definitely needs a rewrite
         if playerTotal == 21 and dealerTotal != 21 and len(self.playerHand.cards) == 2:
             self.finishRound('blackjack')
             return False
@@ -264,8 +304,12 @@ class Texts:
     
     def render(self):
         newTexts = self.texts.copy()
-        newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(250)))
-        newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(35)))
+        # TODO - make this system dynamic somehow, similar to the UI.texts
+        if game.status != 'waiting':
+            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(250)))
+            newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(35)))
+        newTexts.append(Texts.Text(f'{game.balance}$', self.ui.fonts.fontSemiBold, (237, 218, 53), self.ui.width / 2, self.ui.s(460)))
+            
         for text in newTexts:
             self.screen.blit(text.textObj, text.textSurface)
 
@@ -294,7 +338,7 @@ class UI:
         # TODO - implement same system for Sprites, not only Texts
         self.texts = Texts(
             [
-                Texts.Text('900$', self.fonts.fontSemiBold, (237, 218, 53), self.width / 2, self.s(460)),
+               
                 Texts.Text('DEALER', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(49), self.s(39)),
                 Texts.Text('YOU', self.fonts.fontRegular, (255, 255, 255), self.width / 2 - self.s(23), self.s(254)),
             ], 
@@ -309,6 +353,10 @@ class UI:
     # Render the UI wrapper function
     def render(self):
         self.screen.blit(self.background, (0, 0))
+        
+        # This will get better, I promise
+        
+        
         # chip = pygame.image.load('assets/sprites/chips/red.png')
         # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
         # self.screen.blit(chip, (self.s(50), self.s(50)))
@@ -323,15 +371,33 @@ class UI:
         # chip = pygame.transform.smoothscale(chip, (self.s(75), self.s(75)))
         # self.screen.blit(chip, (self.s(50), self.s(305)))     
         
-        card = pygame.image.load('assets/sprites/cards/SA.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.width / 2, self.s(100)))
+        # hitBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
+        # hitBtn = pygame.transform.smoothscale(hitBtn, (self.s(150), self.s(35)))
+        # self.hitRect = hitBtn.get_rect(topleft=(self.width / 2, self.s(450)))
+        # self.screen.blit(hitBtn, self.hitRect)
         
-        card = pygame.image.load('assets/sprites/cards/back_red.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.width / 2 - self.s(90), self.s(100)))
+        # standBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
+        # standBtn = pygame.transform.smoothscale(standBtn, (self.s(150), self.s(35)))
+        # self.standRect = standBtn.get_rect(topleft=(self.width / 2 - self.s(150), self.s(450)))
+        # self.screen.blit(standBtn, self.standRect)
         
-        if len(self.game.playerHand.cards) > 0:
+        # Shoe prop (for now)
+        # TODO - create classes for every possible sprite (cards, chips, buttons, etc..) they repeat themselves constantly
+        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.s(395), self.s(30)))
+        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.s(395), self.s(25)))
+        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.s(395), self.s(20)))
+        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
+        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+        self.screen.blit(card, (self.s(395), self.s(15)))
+ 
+                
+        if self.game.status != 'waiting' and len(self.game.playerHand.cards) > 0:
             card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[0].name}.png')
             card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
             self.screen.blit(card, (self.width / 2, self.s(300)))
@@ -339,17 +405,17 @@ class UI:
             card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[1].name}.png')
             card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
             self.screen.blit(card, (self.width / 2 - self.s(90), self.s(300)))
-            
-  
-        hitBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
-        hitBtn = pygame.transform.smoothscale(hitBtn, (self.s(150), self.s(35)))
-        self.hitRect = hitBtn.get_rect(topleft=(self.width / 2, self.s(450)))
-        self.screen.blit(hitBtn, self.hitRect)
         
-        standBtn = pygame.image.load('assets/sprites/cards/D10.png').convert_alpha()
-        standBtn = pygame.transform.smoothscale(standBtn, (self.s(150), self.s(35)))
-        self.standRect = hitBtn.get_rect(topleft=(self.width / 2 - self.s(150), self.s(450)))
-        self.screen.blit(standBtn, self.standRect)
+        if self.game.status != 'waiting' and len(self.game.dealerHand.cards) > 0:
+            card = pygame.image.load('assets/sprites/cards/back_red.png')
+            if not self.game.dealerHand.firstCardHidden:
+                card = pygame.image.load(f'assets/sprites/cards/{self.game.dealerHand.cards[0].name}.png')
+            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(100)))
+            
+            card = pygame.image.load(f'assets/sprites/cards/{self.game.dealerHand.cards[1].name}.png')
+            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
+            self.screen.blit(card, (self.width / 2, self.s(100)))
         
         self.texts.render()
         pygame.display.flip()
@@ -362,19 +428,3 @@ def cardsString(hand: Hand):
 
 game = Game()
 game.run()
-
-# print(f'Your balance: {game.balance}')
-# while game.balance > 0:
-#     s = input("---- Start new round? (h) ")
-#     if s != "h":
-#         exit()
-#     game.startRound()
-#     game.setHandBet(100)
-#     game.playerTurn()
-    
-#     while game.status == 'playerTurn' and game.playerHand.total <= 21:
-#         move = input("Enter move (h/s): ")
-#         if move == "h":
-#             game.hit()
-#         else:
-#             game.stand()
