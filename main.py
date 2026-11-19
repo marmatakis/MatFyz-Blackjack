@@ -7,6 +7,7 @@ import time
 suits = ['H', 'D', 'S', 'C']
 cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 
             #   'J': 10, 'Q': 10, 'K': 10, 
+            'J': 10,
               'A': -1}
 
 class Card:
@@ -239,7 +240,7 @@ class Game:
                 pass
         self.status = 'waiting'
         
-    def finishRound(self, condition):
+    def finishRound(self, condition: str):
         self.payoutWinnings(self.handBet, condition)
         self.status = 'finishAnimation'
         self.timer = time.time()
@@ -276,12 +277,12 @@ class Game:
     
 class Texts:
     class Fonts:
-        def __init__(self, UI):
-            self.fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', UI.s(16))
-            self.fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', UI.s(23))
-            self.fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', UI.s(28))
+        def __init__(self, ui):
+            self.fontRegular = pygame.font.Font('assets/fonts/Unbounded-Regular.ttf', ui.s(16))
+            self.fontSemiBold = pygame.font.Font('assets/fonts/Unbounded-SemiBold.ttf', ui.s(23))
+            self.fontBold = pygame.font.Font('assets/fonts/Unbounded-Bold.ttf', ui.s(28))
     class Text:
-        def __init__(self, text, font : pygame.font.Font, color, centerx, top):
+        def __init__(self, text: str, font : pygame.font.Font, color: tuple, centerx: int, top: int):
             self.text = text
             self.color = color
             self.centerx = centerx
@@ -308,12 +309,12 @@ class Texts:
         newTexts = self.texts.copy()
         # TODO - make this system dynamic somehow, similar to the UI.texts
         if game.status != 'waiting':
-            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(240)))
+            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(277)))
             newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(43), self.ui.s(25)))
             newTexts.append( Texts.Text('DEALER', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(29)))
-            newTexts.append(Texts.Text('YOU', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(244)))
+            newTexts.append(Texts.Text('YOU', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(280)))
 
-        newTexts.append(Texts.Text(f'{game.balance}$', self.ui.fonts.fontSemiBold, (237, 218, 53), self.ui.s(60), self.ui.s(455)))  
+        newTexts.append(Texts.Text(f'{game.balance}$', self.ui.fonts.fontSemiBold, (237, 218, 53), self.ui.s(60), self.ui.s(460)))  
             
         for text in newTexts:
             self.screen.blit(text.textObj, text.textSurface)
@@ -329,33 +330,63 @@ class UI:
             self.scale = 1.0
             
         self.game = game
-        
         self.base_width, self.base_height = 500, 500
         self.width = int(round(self.base_width * self.scale))
         self.height = int(round(self.base_height * self.scale))
         self.screen = pygame.display.set_mode((self.width, self.height))
-        
         self.background = pygame.image.load('assets/sprites/table.jpg').convert()
         self.background = pygame.transform.smoothscale(self.background, (self.width, self.height))
-        
         self.fonts = Texts.Fonts(self)
-        
         # TODO - implement same system for Sprites, not only Texts
         self.texts = Texts(
-            [
-               
-               
-            ], 
+            [], 
             screen = self.screen,
             ui = self
         )
-        
         self.hitRect = None
         self.standRect = None
         self.doubleRect = None
+        
+        self.Shoe = UI.Shoe((self.s(395), self.s(30)), len=4, ui=self)
     
+    class Chip:
+        def __init__(self, val: int, position: tuple, ui):
+            vals = {10: 'green', 20: 'blue', 50: 'yellow', 100: 'red'}
+            self.position = position
+            self.ui = ui
+            self.val = val
+            self.obj = pygame.image.load(f'assets/sprites/chips/{vals[val]}.png')
+            self.obj = pygame.transform.smoothscale(self.obj, (ui.s(85), ui.s(85)))
+            pass
+        
+        def blit(self):
+            self.ui.screen.blit(self.obj, self.position)
+        
+    class Card:
+        def __init__(self, position: tuple, name: str, ui):
+            self.position = position
+            self.obj = pygame.image.load(f'assets/sprites/cards/{name}.png')
+            self.obj = pygame.transform.smoothscale(self.obj, (ui.s(90), ui.s(120)))
+            self.ui = ui
+            
+        def blit(self):
+            self.ui.screen.blit(self.obj, self.position)
+        
+    class Shoe:
+        def __init__(self, position: tuple, len: int, ui):
+            self.position = position
+            self.len = len
+            self.cards = [UI.Card((position[0], position[1]-i*5), name='back_red', ui=ui) for i in range(self.len)]
+        
+        def setLen(self, len: int):
+            self.len = len
+
+        def blit(self):
+            for card in self.cards:
+                card.blit()
+                
     # Multiply the value 1-500 to the calculated scale
-    def s(self, val):
+    def s(self, val: int):
         return int(round(val * self.scale))
     
     # Render the UI wrapper function
@@ -364,34 +395,25 @@ class UI:
         
         # This will get better, I promise
 
-        chip = pygame.image.load('assets/sprites/chips/blue.png')
-        chip = pygame.transform.smoothscale(chip, (self.s(70), self.s(70)))
-        self.screen.blit(chip, (self.s(50), self.s(195)))
+        # chip = self.Chip(val=10, position=(self.s(50), self.s(195)), ui=self)
+        # chip.blit()
+        chip = self.Chip(val=10, position=(self.s(50), self.s(280)), ui=self)
+        chip.blit()
+        # chip = self.Chip(val=50, position=(self.s(50), self.s(365)), ui=self)
+        # chip.blit()
+        # chip = self.Chip(val=100, position=(self.s(50), self.s(195)), ui=self)
+        # chip.blit()
         
-        # Shoe prop (for now)
-        # TODO - create classes for every possible sprite (cards, chips, buttons, etc..) they repeat themselves constantly
-        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.s(395), self.s(30)))
-        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.s(395), self.s(25)))
-        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.s(395), self.s(20)))
-        card = pygame.image.load(f'assets/sprites/cards/back_red.png')
-        card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-        self.screen.blit(card, (self.s(395), self.s(15)))
- 
+        self.Shoe.blit()
                 
         if self.game.status != 'waiting' and len(self.game.playerHand.cards) > 0:
             card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[0].name}.png')
             card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2, self.s(275)))
+            self.screen.blit(card, (self.width / 2, self.s(315)))
             
             card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[1].name}.png')
             card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(275)))
+            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(315)))
         
         if self.game.status != 'waiting' and len(self.game.dealerHand.cards) > 0:
             card = pygame.image.load('assets/sprites/cards/back_red.png')
@@ -406,20 +428,20 @@ class UI:
         
         if self.game.status not in ['dealerTurn', 'dealAnimation', 'finishAnimation']:
             hitButton = pygame.image.load(f'assets/sprites/buttons/hit.png')
-            hitButton = pygame.transform.smoothscale(hitButton, (self.s(88), self.s(66)))
-            self.hitRect = hitButton.get_rect(topleft=(self.width / 2 + self.s(13), self.s(437)))
+            hitButton = pygame.transform.smoothscale(hitButton, (self.s(73), self.s(55)))
+            self.hitRect = hitButton.get_rect(topleft=(self.width / 2 + self.s(10), self.s(202)))
             self.screen.blit(hitButton, self.hitRect)
         
         if self.game.status not in ['waiting', 'dealerTurn', 'finishAnimation', 'dealAnimation']:
             standButton = pygame.image.load(f'assets/sprites/buttons/stand.png')
-            standButton = pygame.transform.smoothscale(standButton, (self.s(120), self.s(66)))
-            self.standRect = standButton.get_rect(topleft=(self.width / 2 - self.s(99), self.s(437)))
+            standButton = pygame.transform.smoothscale(standButton, (self.s(100), self.s(55)))
+            self.standRect = standButton.get_rect(topleft=(self.width / 2 - self.s(87), self.s(202)))
             self.screen.blit(standButton, self.standRect)
             
-            doubleButton = pygame.image.load(f'assets/sprites/buttons/double.png')
-            doubleButton = pygame.transform.smoothscale(doubleButton, (self.s(120), self.s(66)))
-            self.doubleRect = doubleButton.get_rect(topleft=(self.s(370), self.s(437)))
-            self.screen.blit(doubleButton, self.doubleRect)
+            # doubleButton = pygame.image.load(f'assets/sprites/buttons/double.png')
+            # doubleButton = pygame.transform.smoothscale(doubleButton, (self.s(100), self.s(55)))
+            # self.doubleRect = doubleButton.get_rect(topleft=(self.width / 2 - self.s(50), self.s(447)))
+            # self.screen.blit(doubleButton, self.doubleRect)
             
 
         self.texts.render()
