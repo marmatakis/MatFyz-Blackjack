@@ -14,6 +14,9 @@ class Card:
     def __init__(self, name: str):
         self.value = cardValues[name[1:]]
         self.name = name
+        
+    def __repr__(self):
+        return self.name
 
 class Hand:
     def __init__(self, cards: list[Card], firstCardHidden = False):
@@ -21,6 +24,9 @@ class Hand:
         self.total = 0
         self.firstCardHidden = firstCardHidden
         self.setTotal()
+    
+    def __repr__(self):
+        return " ".join([card.name for card in self.cards])
         
     def addCard(self, card: Card):
         self.cards.append(card)
@@ -96,6 +102,7 @@ class Game:
         pygame.init()
         self.setWindowSettings()
         self.ui = UI(self)
+        self.isHovering = False
     
     
     def handleHit(self):
@@ -119,14 +126,14 @@ class Game:
             
             if self.status == 'dealAnimation' and self.timer + 1.5 < time.time():
                 self.dealerHand.addCard(self.shoe.dealCard())
-                print(f'Dealer cards: {cardsString(self.dealerHand)}total {self.dealerHand.total}')
+                print(f'Dealer cards: {self.dealerHand} total {self.dealerHand.total}')
                 self.status = 'playerTurn'
                 self.stand()
             
             if self.status == 'hitAnimation' and self.timer + 0.5 < time.time():
                 newCard = self.shoe.dealCard()
                 self.playerHand.addCard(newCard)
-                print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
+                print(f'Dealt cards: {self.playerHand} total {self.playerHand.total}')
                 self.status = 'playerTurn'
                 if self.playerHand.total > 21:
                     self.checkGameStatus()
@@ -150,7 +157,17 @@ class Game:
                         self.handleHit()
                     if self.ui.standRect != None and self.ui.standRect.collidepoint(event.pos):
                         self.handleStand()
-
+            
+            mousePos = pygame.mouse.get_pos()
+            if self.ui.hitRect and self.ui.standRect and (self.ui.hitRect.collidepoint(mousePos) or self.ui.standRect.collidepoint(mousePos)):
+                if not self.isHovering:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                    self.isHovering = True
+            else:
+                if self.isHovering:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                    self.isHovering = False
+            
             self.ui.render()
             if not pic:
                 pygame.image.save(self.ui.screen, f"screenshot.png")
@@ -199,7 +216,7 @@ class Game:
         self.status = 'playerTurn'
         self.playerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
         
-        print(f'Dealt cards: {cardsString(self.playerHand)}total {self.playerHand.total}')
+        print(f'Dealt cards: {self.playerHand} total {self.playerHand.total}')
     
     def hit(self):
         assert self.status == 'playerTurn'
@@ -309,10 +326,10 @@ class Texts:
         newTexts = self.texts.copy()
         # TODO - make this system dynamic somehow, similar to the UI.texts
         if game.status != 'waiting':
-            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(277)))
-            newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(43), self.ui.s(25)))
-            newTexts.append( Texts.Text('DEALER', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(29)))
-            newTexts.append(Texts.Text('YOU', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(280)))
+            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(242)))
+            newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(43), self.ui.s(35)))
+            newTexts.append( Texts.Text('DEALER', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(39)))
+            newTexts.append(Texts.Text('YOU', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(245)))
 
         newTexts.append(Texts.Text(f'{game.balance}$', self.ui.fonts.fontSemiBold, (237, 218, 53), self.ui.s(60), self.ui.s(460)))  
             
@@ -346,8 +363,8 @@ class UI:
         self.hitRect = None
         self.standRect = None
         self.doubleRect = None
-        
         self.Shoe = UI.Shoe((self.s(395), self.s(30)), len=4, ui=self)
+        self.Cards = UI.Cards(self, [], [])
     
     class Chip:
         def __init__(self, val: int, position: tuple, ui):
@@ -356,7 +373,7 @@ class UI:
             self.ui = ui
             self.val = val
             self.obj = pygame.image.load(f'assets/sprites/chips/{vals[val]}.png')
-            self.obj = pygame.transform.smoothscale(self.obj, (ui.s(85), ui.s(85)))
+            self.obj = pygame.transform.smoothscale(self.obj, (ui.s(75), ui.s(75)))
             pass
         
         def blit(self):
@@ -369,9 +386,65 @@ class UI:
             self.obj = pygame.transform.smoothscale(self.obj, (ui.s(90), ui.s(120)))
             self.ui = ui
             
+        def setPosition(self, position: tuple):
+            self.position = position
+            
         def blit(self):
             self.ui.screen.blit(self.obj, self.position)
+            
+    class Cards:
+        def __init__(self, ui, playerCards: list[Card] = [], dealerCards: list[Card] = []):
+            self.playerCards = playerCards
+            self.dealerCards = dealerCards
+            self.ui = ui
+
+            self.playerPositions = [
+                [(self.ui.width / 2 + self.ui.s(40 * i) - self.ui.s(22 * x) - self.ui.s(40), self.ui.s(275))
+                for i in range(8)]
+                for x in range(8)
+            ]
+            self.dealerPositions = [
+                [(self.ui.width / 2 + self.ui.s(40 * i) - self.ui.s(22 * x) - self.ui.s(40), self.ui.s(70))
+                for i in range(8)]
+                for x in range(8)
+            ]
+            
+        def addPlayerCards(self, cards: list[str]):
+            for c in cards:
+                card = UI.Card((0, 0), name=c, ui=self.ui)
+                self.addPlayerCard(card)
+                totalLen = self.playerCardsLength()
+                for i, card in enumerate(self.playerCards):
+                    card.setPosition(self.playerPositions[totalLen - 1][i])
+                        
+        def addDealerCards(self, cards: list[str]):
+            for c in cards:
+                card = UI.Card((0, 0), name=c, ui=self.ui)
+                self.addDealerCard(card)
+                totalLen = self.dealerCardsLength()
+                for i, card in enumerate(self.dealerCards):
+                    card.setPosition(self.dealerPositions[totalLen - 1][i])
+            
+        def addPlayerCard(self, card: Card):
+            self.playerCards.append(card)
+        def addDealerCard(self, card: Card):
+            self.dealerCards.append(card)
+        def removeDealerCards(self):
+            self.dealerCards = []
+        def removePlayerCards(self):
+            self.playerCards = []
+        def removeCards(self):
+            self.removeDealerCards()
+            self.removePlayerCards()
+        def playerCardsLength(self):
+            return len(self.playerCards)
+        def dealerCardsLength(self):
+            return len(self.dealerCards)
         
+        def blit(self):
+            for card in self.dealerCards + self.playerCards:
+                card.blit()
+           
     class Shoe:
         def __init__(self, position: tuple, len: int, ui):
             self.position = position
@@ -392,66 +465,39 @@ class UI:
     # Render the UI wrapper function
     def render(self):
         self.screen.blit(self.background, (0, 0))
-        
-        # This will get better, I promise
 
-        # chip = self.Chip(val=10, position=(self.s(50), self.s(195)), ui=self)
-        # chip.blit()
-        chip = self.Chip(val=10, position=(self.s(50), self.s(280)), ui=self)
+        chip = self.Chip(val=10, position=(self.s(50), self.s(195)), ui=self)
         chip.blit()
-        # chip = self.Chip(val=50, position=(self.s(50), self.s(365)), ui=self)
-        # chip.blit()
-        # chip = self.Chip(val=100, position=(self.s(50), self.s(195)), ui=self)
-        # chip.blit()
         
         self.Shoe.blit()
-                
-        if self.game.status != 'waiting' and len(self.game.playerHand.cards) > 0:
-            card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[0].name}.png')
-            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2, self.s(315)))
-            
-            card = pygame.image.load(f'assets/sprites/cards/{self.game.playerHand.cards[1].name}.png')
-            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(315)))
         
-        if self.game.status != 'waiting' and len(self.game.dealerHand.cards) > 0:
-            card = pygame.image.load('assets/sprites/cards/back_red.png')
-            if not self.game.dealerHand.firstCardHidden:
-                card = pygame.image.load(f'assets/sprites/cards/{self.game.dealerHand.cards[0].name}.png')
-            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2 - self.s(90), self.s(60)))
-            
-            card = pygame.image.load(f'assets/sprites/cards/{self.game.dealerHand.cards[1].name}.png')
-            card = pygame.transform.smoothscale(card, (self.s(90), self.s(120)))
-            self.screen.blit(card, (self.width / 2, self.s(60)))
+        if len(self.game.playerHand.cards) > 0:
+            self.Cards.removePlayerCards()
+            self.Cards.addPlayerCards(self.game.playerHand.cards)
+        
+        dealerCards = self.game.dealerHand.cards.copy()
+        if len(dealerCards) > 0:
+            self.Cards.removeDealerCards()
+            if self.game.dealerHand.firstCardHidden:
+                dealerCards[0] = 'back_red'
+            self.Cards.addDealerCards(dealerCards)
+        
+        self.Cards.blit()
         
         if self.game.status not in ['dealerTurn', 'dealAnimation', 'finishAnimation']:
             hitButton = pygame.image.load(f'assets/sprites/buttons/hit.png')
             hitButton = pygame.transform.smoothscale(hitButton, (self.s(73), self.s(55)))
-            self.hitRect = hitButton.get_rect(topleft=(self.width / 2 + self.s(10), self.s(202)))
+            self.hitRect = hitButton.get_rect(topleft=(self.width / 2 + self.s(10), self.s(432)))
             self.screen.blit(hitButton, self.hitRect)
         
         if self.game.status not in ['waiting', 'dealerTurn', 'finishAnimation', 'dealAnimation']:
             standButton = pygame.image.load(f'assets/sprites/buttons/stand.png')
             standButton = pygame.transform.smoothscale(standButton, (self.s(100), self.s(55)))
-            self.standRect = standButton.get_rect(topleft=(self.width / 2 - self.s(87), self.s(202)))
+            self.standRect = standButton.get_rect(topleft=(self.width / 2 - self.s(87), self.s(432)))
             self.screen.blit(standButton, self.standRect)
-            
-            # doubleButton = pygame.image.load(f'assets/sprites/buttons/double.png')
-            # doubleButton = pygame.transform.smoothscale(doubleButton, (self.s(100), self.s(55)))
-            # self.doubleRect = doubleButton.get_rect(topleft=(self.width / 2 - self.s(50), self.s(447)))
-            # self.screen.blit(doubleButton, self.doubleRect)
-            
-
+        
         self.texts.render()
         pygame.display.flip()
-    
-def cardsString(hand: Hand):
-    s = ""
-    for card in hand.cards:
-        s += card.name + " "
-    return s
 
 game = Game()
 game.run()
