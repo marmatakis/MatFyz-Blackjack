@@ -5,8 +5,8 @@
 ![License](https://img.shields.io/github/license/marmatakis/MatFyz-Blackjack?style=flat-square)
 
 
-<img src="./assets/screenshots/screenshot.png" alt="table" width="400">
-<br><br>
+<!-- <img src="./assets/screenshots/screenshot.png" alt="table" width="400"> -->
+<!-- <br> -->
 <!-- <img src="./assets/sprites/cards/SJ.png" width="150">
 <img src="./assets/sprites/cards/D10.png" width="150">
 <img src="./assets/sprites/cards/CA.png" width="150"> -->
