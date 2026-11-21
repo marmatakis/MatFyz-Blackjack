@@ -3,6 +3,7 @@ import sys
 import ctypes
 import random
 import time
+from PIL import Image
 
 suits = ['H', 'D', 'S', 'C']
 cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 
@@ -153,20 +154,13 @@ class Game:
                         self.handleStand()
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     # TODO - review this logic and move it to a separate function, too much indentation
-                    if self.ui.hitRect.collidepoint(event.pos):
+                    if self.ui.standRect != None and self.ui.hitRect.collidepoint(event.pos):
                         self.handleHit()
                     if self.ui.standRect != None and self.ui.standRect.collidepoint(event.pos):
                         self.handleStand()
-            
-            mousePos = pygame.mouse.get_pos()
-            if self.ui.hitRect and self.ui.standRect and (self.ui.hitRect.collidepoint(mousePos) or self.ui.standRect.collidepoint(mousePos)):
-                if not self.isHovering:
-                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-                    self.isHovering = True
-            else:
-                if self.isHovering:
-                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
-                    self.isHovering = False
+                    if self.ui.startRect != None and self.ui.startRect.collidepoint(event.pos):
+                        self.handleHit()
+                    
             
             self.ui.render()
             if not pic:
@@ -458,13 +452,27 @@ class UI:
             for card in self.cards:
                 card.blit()
                 
+    class Button:
+        def __init__(self, buttonType, position, ui):
+            self.buttonType = buttonType
+            self.width = 0
+            self.ui = ui
+            with Image.open(f'assets/sprites/buttons/{buttonType}.png') as img:
+                self.width = img.width / img.height * 55
+            self.button = pygame.image.load(f'assets/sprites/buttons/{buttonType}.png')
+            self.button = pygame.transform.smoothscale(self.button, (self.ui.s(self.width), self.ui.s(55)))
+            self.rect = self.button.get_rect(topleft=position)
+        
+        def blit(self):
+            self.ui.screen.blit(self.button, self.rect)
+        
     # Multiply the value 1-500 to the calculated scale
     def s(self, val: int):
         return int(round(val * self.scale))
     
     # Render the UI wrapper function
     def render(self):
-        self.screen.blit(self.background, (0, 0))
+        self.screen.blit(self.background, (0, +0))
 
         chip = self.Chip(val=10, position=(self.s(50), self.s(195)), ui=self)
         chip.blit()
@@ -484,18 +492,25 @@ class UI:
         
         self.Cards.blit()
         
-        if self.game.status not in ['dealerTurn', 'dealAnimation', 'finishAnimation']:
-            hitButton = pygame.image.load(f'assets/sprites/buttons/hit.png')
-            hitButton = pygame.transform.smoothscale(hitButton, (self.s(73), self.s(55)))
-            self.hitRect = hitButton.get_rect(topleft=(self.width / 2 + self.s(10), self.s(432)))
-            self.screen.blit(hitButton, self.hitRect)
+        if self.game.status not in ['waiting', 'dealerTurn', 'dealAnimation', 'finishAnimation']:
+            hitButton = UI.Button('hit', (self.width / 2 + self.s(10), self.s(432)), ui=self)
+            self.hitRect = hitButton.rect
+            hitButton.blit()
         
         if self.game.status not in ['waiting', 'dealerTurn', 'finishAnimation', 'dealAnimation']:
-            standButton = pygame.image.load(f'assets/sprites/buttons/stand.png')
-            standButton = pygame.transform.smoothscale(standButton, (self.s(100), self.s(55)))
-            self.standRect = standButton.get_rect(topleft=(self.width / 2 - self.s(87), self.s(432)))
-            self.screen.blit(standButton, self.standRect)
-        
+            standButton = UI.Button('stand', (self.width / 2 - self.s(87), self.s(432)), ui=self)
+            self.standRect = standButton.rect
+            standButton.blit()
+            
+        if self.game.status in ['waiting']:
+            startButton = UI.Button('start', (self.width / 2 - self.s(40), self.s(432)), ui=self)
+            self.startRect = startButton.rect
+            startButton.blit()
+            
+            statsButton = UI.Button('stats', (self.s(390), self.s(432)), ui=self)
+            self.statsRect = statsButton.rect
+            statsButton.blit()
+           
         self.texts.render()
         pygame.display.flip()
 
