@@ -36,7 +36,7 @@ class Hand:
     def setTotal(self):
         self.total = 0
         aces = 0
-        
+        print(self.cards)
         for i, card in enumerate(self.cards):
             if self.firstCardHidden and i == 0:
                 continue
@@ -123,7 +123,8 @@ class Game:
         self.running = True
         pic = False
         while self.running:
-            self.clock.tick(30)
+            dt = min(self.clock.tick(120) / 1000.0, 0.05)
+            # print(f"FPS {self.clock.get_fps():.1f}")
             
             if self.status == 'dealAnimation' and self.timer + 1.5 < time.time():
                 self.dealerHand.addCard(self.shoe.dealCard())
@@ -152,17 +153,21 @@ class Game:
                         self.handleHit()
                     elif event.key == pygame.K_s:
                         self.handleStand()
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     # TODO - review this logic and move it to a separate function, too much indentation
-                    if self.ui.standRect != None and self.ui.hitRect.collidepoint(event.pos):
-                        self.handleHit()
-                    if self.ui.standRect != None and self.ui.standRect.collidepoint(event.pos):
-                        self.handleStand()
-                    if self.ui.startRect != None and self.ui.startRect.collidepoint(event.pos):
-                        self.handleHit()
                     
+                    if self.status == 'waiting' and self.ui.startRect != None and self.ui.startRect.collidepoint(event.pos):
+                        print("Start clicked")
+                        self.handleHit()  
+                    elif self.status != 'waiting' and self.ui.hitRect != None and self.ui.hitRect.collidepoint(event.pos):
+                        print("Hit clicked")
+                        self.handleHit()
+                    elif self.status != 'waiting' and self.ui.standRect != None and self.ui.standRect.collidepoint(event.pos):
+                        print("Stand clicked")
+                        self.handleStand()
             
-            self.ui.render()
+            self.ui.render(dt=dt)
             if not pic:
                 pygame.image.save(self.ui.screen, f"screenshot.png")
                 pic = True
@@ -204,13 +209,10 @@ class Game:
     def playerTurn(self):
         assert self.status == 'betting'
         self.balance -= self.handBet
-        print(f'Hand bet: {self.handBet}')
         self.dealerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()], firstCardHidden=True)
-        print(f'Dealer card: {self.dealerHand.cards[0]} total {self.dealerHand.total}')
         self.status = 'playerTurn'
         self.playerHand = Hand([self.shoe.dealCard(), self.shoe.dealCard()])
-        
-        print(f'Dealt cards: {self.playerHand} total {self.playerHand.total}')
+        self.ui.chips.moveToHand()
     
     def hit(self):
         assert self.status == 'playerTurn'
@@ -221,7 +223,6 @@ class Game:
         assert self.status == 'playerTurn'
         self.status = 'dealerTurn'
         self.dealerHand.revealCard()
-        self.ui.render()
   
         # implementation of house/dealer rules - stand on 17+, hit on <16
         if self.dealerHand.total <= 16:
@@ -233,11 +234,13 @@ class Game:
     def payoutWinnings(self, bet: int, condition: str):
         self.status = 'payout'
         # TODO - remove print statements everywhere here and display everything in the interface
+        
         match condition:
             case 'blackjack':
                 print(f'Blackjack! +{bet * 3 / 2}, Balance: {game.balance + bet + bet * 3 / 2}')
                 self.addToBalance(bet + bet * 3 / 2)
             case 'win':
+                self.ui.chips.moveToPlayer()
                 print(f'Win +{bet}, Balance: {game.balance + 2*bet}')
                 self.addToBalance(2 * bet)
             case 'doubleWin':
@@ -248,6 +251,7 @@ class Game:
                 self.addToBalance(bet)
             case 'loss':
                 print(f'Loss:( Balance: {game.balance}')
+                self.ui.chips.moveToDealer()
                 pass
         self.status = 'waiting'
         
@@ -285,7 +289,8 @@ class Game:
         if dealerTotal > playerTotal:
             self.finishRound('loss')
             return False
-    
+
+
 class Texts:
     class Fonts:
         def __init__(self, ui):
@@ -357,28 +362,84 @@ class UI:
         self.hitRect = None
         self.standRect = None
         self.doubleRect = None
-        self.Shoe = UI.Shoe((self.s(395), self.s(30)), len=4, ui=self)
-        self.Cards = UI.Cards(self, [], [])
+        self.shoe = UI.Shoe((self.s(395), self.s(30)), len=4, ui=self)
+        self.cards = UI.Cards(self, [], [])
+        
+        chip = self.Chip(val=100, position=(self.s(-70), self.s(-70)), target=(self.s(-70), self.s(-70)), ui=self)
+        self.chips = UI.Chips([chip], self)
+        
+        self.startButton = UI.Button('start', (self.width / 2 - self.s(40), self.s(432)), ui=self)
+        self.startRect = self.startButton.rect
+        self.statsButton = UI.Button('stats', (self.s(390), self.s(432)), ui=self)
+        self.statsRect = self.statsButton.rect
+        self.standButton = UI.Button('stand', (self.width / 2 - self.s(87), self.s(432)), ui=self)
+        self.standRect = self.standButton.rect
+        self.hitButton = UI.Button('hit', (self.width / 2 + self.s(10), self.s(432)), ui=self)
+        self.hitRect = self.hitButton.rect
     
     class Chip:
-        def __init__(self, val: int, position: tuple, ui):
+        def __init__(self, val: int, position: tuple, target: tuple, ui):
             vals = {10: 'green', 20: 'blue', 50: 'yellow', 100: 'red'}
-            self.position = position
+            self.position = pygame.math.Vector2(position)
+            self.target = pygame.math.Vector2(target)
+            
+            self.isMoving = self.position != self.target
+            self.speed = 250
+            
             self.ui = ui
             self.val = val
-            self.obj = pygame.image.load(f'assets/sprites/chips/{vals[val]}.png')
+            self.obj = pygame.image.load(f'assets/sprites/chips/{vals[val]}.png').convert_alpha()
             self.obj = pygame.transform.smoothscale(self.obj, (ui.s(75), ui.s(75)))
-            pass
+
+        def update(self, dt):
+            if not self.isMoving:
+                return
+        
+            self.position = self.position.move_towards(self.target, self.speed * dt)
+            if self.position == self.target:
+                self.isMoving = False
+        
+        def setTarget(self, target):
+            self.target = pygame.math.Vector2(target)
+            self.isMoving = self.position != self.target
+        
+        def setPosition(self, position):
+            self.position = pygame.math.Vector2(position)
+            self.isMoving = self.position != self.target
         
         def blit(self):
             self.ui.screen.blit(self.obj, self.position)
+            
+    class Chips:
+        def __init__(self, handChips: list, ui):
+            self.ui = ui
+            self.handChips = handChips
+        
+        def moveToDealer(self):
+            for chip in self.handChips:
+                chip.setTarget((self.ui.s(50), self.ui.s(-70)))
+                
+        def moveToPlayer(self):
+            for chip in self.handChips:
+                chip.setTarget((self.ui.s(50), self.ui.s(570)))
+        
+        def moveToHand(self):
+            for chip in self.handChips:
+                chip.setPosition((self.ui.s(550), self.ui.s(450)))
+                chip.setTarget((self.ui.s(50), self.ui.s(195)))
+        
+        def update(self, dt):
+            for chip in self.handChips:
+                chip.update(dt)
+                chip.blit()
         
     class Card:
         def __init__(self, position: tuple, name: str, ui):
             self.position = position
-            self.obj = pygame.image.load(f'assets/sprites/cards/{name}.png')
+            self.obj = pygame.image.load(f'assets/sprites/cards/{name}.png').convert_alpha()
             self.obj = pygame.transform.smoothscale(self.obj, (ui.s(90), ui.s(120)))
             self.ui = ui
+            self.name = name
             
         def setPosition(self, position: tuple):
             self.position = position
@@ -388,8 +449,11 @@ class UI:
             
     class Cards:
         def __init__(self, ui, playerCards: list[Card] = [], dealerCards: list[Card] = []):
-            self.playerCards = playerCards
-            self.dealerCards = dealerCards
+            self.playerCards = []
+            self.dealerCards = []
+            self.playerCardNames = []
+            self.dealerCardNames = []
+            self.dealerCardHidden = True
             self.ui = ui
 
             self.playerPositions = [
@@ -402,6 +466,27 @@ class UI:
                 for i in range(8)]
                 for x in range(8)
             ]
+        
+        def update(self, dealerCards, playerCards, dealerCardHidden):
+            dealerCards = dealerCards.copy()
+            # TODO - still, for the future only add cards that haven't been added yet instead of rewriting
+            if playerCards != self.playerCardNames:
+                print('playerCards != self.playerCardNames')
+                self.removePlayerCards()
+                self.addPlayerCards(playerCards)
+            
+            if self.dealerCardHidden != dealerCardHidden and len(dealerCards) > 0:
+                print('dealer card hidden', dealerCardHidden)
+                self.dealerCardHidden = dealerCardHidden
+                self.removeDealerCards()
+                self.addDealerCards(dealerCards, firstCardHidden=dealerCardHidden)
+                
+            if dealerCards != self.dealerCardNames:
+                print('dealerCards != self.dealerCardNames', self.dealerCardNames, dealerCards)
+                self.removeDealerCards()
+                self.addDealerCards(dealerCards, firstCardHidden=self.dealerCardHidden)
+            
+            self.blit()
             
         def addPlayerCards(self, cards: list[str]):
             for c in cards:
@@ -411,29 +496,41 @@ class UI:
                 for i, card in enumerate(self.playerCards):
                     card.setPosition(self.playerPositions[totalLen - 1][i])
                         
-        def addDealerCards(self, cards: list[str]):
-            for c in cards:
+        def addDealerCards(self, cards: list[str], firstCardHidden=False):
+            for i, c in enumerate(cards):
                 card = UI.Card((0, 0), name=c, ui=self.ui)
-                self.addDealerCard(card)
+                if i == 0 and firstCardHidden:
+                    card = UI.Card((0, 0), name='back_red', ui=self.ui)
+                    self.addDealerCard(card, append=False)
+                    self.dealerCardNames.append(c)
+                else:
+                    self.addDealerCard(card)
                 totalLen = self.dealerCardsLength()
                 for i, card in enumerate(self.dealerCards):
                     card.setPosition(self.dealerPositions[totalLen - 1][i])
             
         def addPlayerCard(self, card: Card):
             self.playerCards.append(card)
-        def addDealerCard(self, card: Card):
+            self.playerCardNames.append(card.name)
+        def addDealerCard(self, card: Card, append=True):
             self.dealerCards.append(card)
+            if append:
+                self.dealerCardNames.append(card.name)
         def removeDealerCards(self):
             self.dealerCards = []
+            self.dealerCardNames = []
         def removePlayerCards(self):
             self.playerCards = []
+            self.playerCardNames = []
         def removeCards(self):
             self.removeDealerCards()
             self.removePlayerCards()
+            self.dealerCardNames = []
+            self.playerCardNames = []
         def playerCardsLength(self):
-            return len(self.playerCards)
+            return len(self.playerCardNames)
         def dealerCardsLength(self):
-            return len(self.dealerCards)
+            return len(self.dealerCardNames)
         
         def blit(self):
             for card in self.dealerCards + self.playerCards:
@@ -459,7 +556,7 @@ class UI:
             self.ui = ui
             with Image.open(f'assets/sprites/buttons/{buttonType}.png') as img:
                 self.width = img.width / img.height * 55
-            self.button = pygame.image.load(f'assets/sprites/buttons/{buttonType}.png')
+            self.button = pygame.image.load(f'assets/sprites/buttons/{buttonType}.png').convert_alpha()
             self.button = pygame.transform.smoothscale(self.button, (self.ui.s(self.width), self.ui.s(55)))
             self.rect = self.button.get_rect(topleft=position)
         
@@ -471,47 +568,24 @@ class UI:
         return int(round(val * self.scale))
     
     # Render the UI wrapper function
-    def render(self):
-        self.screen.blit(self.background, (0, +0))
-
-        chip = self.Chip(val=10, position=(self.s(50), self.s(195)), ui=self)
-        chip.blit()
-        
-        self.Shoe.blit()
-        
-        if len(self.game.playerHand.cards) > 0:
-            self.Cards.removePlayerCards()
-            self.Cards.addPlayerCards(self.game.playerHand.cards)
-        
-        dealerCards = self.game.dealerHand.cards.copy()
-        if len(dealerCards) > 0:
-            self.Cards.removeDealerCards()
-            if self.game.dealerHand.firstCardHidden:
-                dealerCards[0] = 'back_red'
-            self.Cards.addDealerCards(dealerCards)
-        
-        self.Cards.blit()
+    def render(self, dt):
+        self.screen.blit(self.background, (0, 0))
+        self.shoe.blit()
+         
+        self.cards.update(self.game.dealerHand.cards, self.game.playerHand.cards, self.game.dealerHand.firstCardHidden)
         
         if self.game.status not in ['waiting', 'dealerTurn', 'dealAnimation', 'finishAnimation']:
-            hitButton = UI.Button('hit', (self.width / 2 + self.s(10), self.s(432)), ui=self)
-            self.hitRect = hitButton.rect
-            hitButton.blit()
+            self.hitButton.blit()
         
         if self.game.status not in ['waiting', 'dealerTurn', 'finishAnimation', 'dealAnimation']:
-            standButton = UI.Button('stand', (self.width / 2 - self.s(87), self.s(432)), ui=self)
-            self.standRect = standButton.rect
-            standButton.blit()
+            self.standButton.blit()
             
         if self.game.status in ['waiting']:
-            startButton = UI.Button('start', (self.width / 2 - self.s(40), self.s(432)), ui=self)
-            self.startRect = startButton.rect
-            startButton.blit()
-            
-            statsButton = UI.Button('stats', (self.s(390), self.s(432)), ui=self)
-            self.statsRect = statsButton.rect
-            statsButton.blit()
+            self.startButton.blit()
+            self.statsButton.blit()
            
         self.texts.render()
+        self.chips.update(dt)
         pygame.display.flip()
 
 game = Game()
