@@ -7,9 +7,10 @@ from PIL import Image
 
 suits = ['H', 'D', 'S', 'C']
 cardValues = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 
-            #   'J': 10, 'Q': 10, 'K': 10, 
+            # 'K': 10, 
+            'Q': 10,
             'J': 10,
-              'A': -1}
+            'A': -1}
 
 class Card:
     def __init__(self, name: str):
@@ -223,7 +224,8 @@ class Game:
     def stand(self):
         assert self.status == 'playerTurn'
         self.status = 'dealerTurn'
-        self.dealerHand.revealCard()
+        if self.dealerHand.firstCardHidden:
+            self.dealerHand.revealCard()
   
         # implementation of house/dealer rules - stand on 17+, hit on <16
         if self.dealerHand.total <= 16:
@@ -442,23 +444,37 @@ class UI:
                 chip.blit()
         
     class Card:
-        def __init__(self, position: tuple, target: tuple, name: str, ui):
+        def __init__(self, position: tuple, target: tuple, name: str, img: str, ui, hidden=False):
             self.position = pygame.math.Vector2(position)
             self.target = pygame.math.Vector2(target)
             self.isMoving = self.position != self.target
             self.speed = 700
             
-            self.obj = pygame.image.load(f'assets/sprites/cards/{name}.png').convert_alpha()
+            self.obj = pygame.image.load(f'assets/sprites/cards/{img}.png').convert_alpha()
             self.obj = pygame.transform.smoothscale(self.obj, (ui.s(90), ui.s(120)))
+            self.img = img
+            self.hidden = hidden
             self.ui = ui
             self.name = name
         
         def update(self, dt):
+            # print('update called')
             if not self.isMoving:
                 return
-        
             self.position = self.position.move_towards(self.target, self.speed * dt)
             if self.position == self.target:
+                if game.status == 'dealerCardAnimation':
+                    self.setImg(self.ui.cards.dealerCardNames[0])
+                    game.status = 'dealerCardAnimation2'
+                    self.setTarget(self.ui.cards.dealerPositions[1][0])
+                    return
+                if game.status == 'dealerCardAnimation2':
+                    game.status = 'playerTurn'
+                    game.stand()
+                if self.hidden:
+                    self.setImg(self.name)
+                    self.hidden = False
+                    self.speed = 200
                 self.isMoving = False
         
         def setImg(self, name):
@@ -466,8 +482,10 @@ class UI:
             self.obj = pygame.transform.smoothscale(self.obj, (self.ui.s(90), self.ui.s(120)))
         
         def setTarget(self, target):
+            print('setTarget called')
             self.target = pygame.math.Vector2(target)
             self.isMoving = self.position != self.target
+            print(self.target, self.isMoving)
                 
         def setPosition(self, position):
             self.position = pygame.math.Vector2(position)
@@ -525,7 +543,7 @@ class UI:
                 initialLen = len(self.playerCardNames)
                 # print('initial len' , initialLen)
                 if i + 1 > initialLen:
-                    card = UI.Card((0, 0), (0, 0), name=c, ui=self.ui)
+                    card = UI.Card((0, 0), (0, 0), img='back_red', name=c, hidden=True, ui=self.ui)
                     self.addPlayerCard(card)
                 else:
                     card = self.playerCards[i]
@@ -539,13 +557,15 @@ class UI:
         def addDealerCards(self, cards: list[str], firstCardHidden=False):
             if firstCardHidden:
                 self.firstCardHidden = True
+                
+            excludeFirstCard = False
             for i, c in enumerate(cards):
                 card = None
                 initialLen = len(self.dealerCardNames)
                 if i + 1 > initialLen:
-                    card = UI.Card((0, 0), (0, 0), name=c, ui=self.ui)
+                    card = UI.Card((0, 0), (0, 0), name=c, img=c, hidden=True, ui=self.ui)
                     if i == 0 and firstCardHidden:
-                        card = UI.Card((0, 0), (0, 0), name='back_red', ui=self.ui)
+                        card = UI.Card((0, 0), (0, 0), name='back_red', img='back_red', ui=self.ui)
                         self.addDealerCard(card, append=False)
                         self.dealerCardNames.append(c)
                     else:
@@ -555,13 +575,23 @@ class UI:
                     if i == 0 and self.firstCardHidden and not firstCardHidden:
                         print('setting not hidden')
                         self.firstCardHidden = False
-                        card.setImg(self.dealerCardNames[i])
+                        card.setTarget((self.ui.width / 2 - self.ui.s(120), self.ui.s(70)))
+                        card.speed = 300
+                        game.status = 'dealerCardAnimation'
+                        excludeFirstCard = True
                 
-                totalLen = self.dealerCardsLength()
-                for j, card in enumerate(self.dealerCards):
-                    if j + 1 > initialLen:
-                        card.setPosition((self.ui.s(395), self.ui.s(10)))
-                    card.setTarget(self.dealerPositions[totalLen - 1][j])
+                self.setDealerPositions(initialLen, excludeFirstCard)
+                
+               
+        # TODO - for the future - write one function for both player and dealer cards, no repetitions
+        def setDealerPositions(self, initialLen, excludeFirstCard):
+            totalLen = self.dealerCardsLength()
+            for j, card in enumerate(self.dealerCards):
+                if j == 0 and excludeFirstCard:
+                    continue
+                if j + 1 > initialLen:
+                    card.setPosition((self.ui.s(395), self.ui.s(10)))
+                card.setTarget(self.dealerPositions[totalLen - 1][j])
             
         def addPlayerCard(self, card: Card):
             self.playerCards.append(card)
@@ -599,7 +629,7 @@ class UI:
                 UI.Card(
                     position=(position[0], position[1]-i*5), 
                     target=(position[0], position[1]-i*5), 
-                    name='back_red', ui=ui
+                    name='back_red', img='back_red', ui=ui
                 ) 
                 for i in range(self.len)
             ]
