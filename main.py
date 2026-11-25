@@ -105,6 +105,8 @@ class Game:
         self.setWindowSettings()
         self.ui = UI(self)
         self.isHovering = False
+        self.displayedPlayerTotal = 0
+        self.displayedDealerTotal = 0
     
     
     def handleHit(self):
@@ -114,7 +116,7 @@ class Game:
             self.playerTurn()
         elif self.status == 'playerTurn':
             self.hit()
-    
+           
     def handleStand(self):
         if self.status == 'playerTurn':
             self.stand()
@@ -262,11 +264,12 @@ class Game:
         self.payoutWinnings(self.handBet, condition)
         self.status = 'finishAnimation'
         self.timer = time.time()
+        # TODO - timeout doesn't work here for some reason :(
         
     
     def checkGameStatus(self):
-        playerTotal = self.playerHand.total
-        dealerTotal = self.dealerHand.total
+        playerTotal = self.displayedPlayerTotal
+        dealerTotal = self.displayedDealerTotal
         
         if dealerTotal != 0:
             print(f'player {playerTotal} dealer {dealerTotal}')
@@ -324,12 +327,36 @@ class Texts:
     def addText(self, text: Text):
         self.texts.append(text)
     
+    def calcTotal(self, cards):
+        total = 0
+        aces = 0
+        for i, card in enumerate(cards):
+            if card.hidden:
+                continue
+            cardVal = cardValues[str(card.name)[1:]]
+            if cardVal != -1:
+                total += cardVal
+            else:
+                aces += 1
+        
+        for i in range(aces):
+            if total + 11 < 21:
+                total += 11
+            else:
+                total += 1
+        return total
+
     def render(self):
         newTexts = self.texts.copy()
         # TODO - make this system dynamic somehow, similar to the UI.texts
         if game.status != 'waiting':
-            newTexts.append(Texts.Text(str(game.playerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(242)))
-            newTexts.append(Texts.Text(str(game.dealerHand.total), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(43), self.ui.s(35)))
+            playerHandTotal = self.calcTotal(game.ui.cards.playerCards)
+            dealerHandTotal = self.calcTotal(game.ui.cards.dealerCards)
+            game.displayedPlayerTotal = playerHandTotal
+            game.displayedDealerTotal = dealerHandTotal
+                
+            newTexts.append(Texts.Text(str(playerHandTotal), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(23), self.ui.s(242)))
+            newTexts.append(Texts.Text(str(dealerHandTotal), self.ui.fonts.fontBold, (255, 255, 255), self.ui.width / 2 + self.ui.s(43), self.ui.s(35)))
             newTexts.append( Texts.Text('DEALER', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(39)))
             newTexts.append(Texts.Text('YOU', self.ui.fonts.fontRegular, (255, 255, 255), self.ui.width / 2 - self.ui.s(27), self.ui.s(245)))
 
@@ -382,7 +409,7 @@ class UI:
         self.startRect = self.startButton.rect
         self.statsButton = UI.Button('stats', (self.s(390), self.s(432)), ui=self)
         self.statsRect = self.statsButton.rect
-        self.standButton = UI.Button('stand', (self.width / 2 - self.s(87), self.s(432)), ui=self)
+        self.standButton = UI.Button('stand', (self.width / 2 - self.s(97), self.s(432)), ui=self)
         self.standRect = self.standButton.rect
         self.hitButton = UI.Button('hit', (self.width / 2 + self.s(10), self.s(432)), ui=self)
         self.hitRect = self.hitButton.rect
@@ -453,7 +480,9 @@ class UI:
             self.obj = pygame.image.load(f'assets/sprites/cards/{img}.png').convert_alpha()
             self.obj = pygame.transform.smoothscale(self.obj, (ui.s(90), ui.s(120)))
             self.img = img
+            print('initial hidden', hidden)
             self.hidden = hidden
+            self.dealerCard = False
             self.ui = ui
             self.name = name
         
@@ -464,15 +493,17 @@ class UI:
             self.position = self.position.move_towards(self.target, self.speed * dt)
             if self.position == self.target:
                 if game.status == 'dealerCardAnimation':
-                    self.setImg(self.ui.cards.dealerCardNames[0])
+                    self.setImg(self.name)
+                    self.dealerCard = False
                     game.status = 'dealerCardAnimation2'
                     self.setTarget(self.ui.cards.dealerPositions[1][0])
                     return
                 if game.status == 'dealerCardAnimation2':
                     game.status = 'playerTurn'
                     game.stand()
-                if self.hidden:
+                if self.hidden and not self.dealerCard:
                     self.setImg(self.name)
+                    print('setting hidden to False', self.position, self.target, self.name, self.img)
                     self.hidden = False
                     self.speed = 200
                 self.isMoving = False
@@ -518,18 +549,15 @@ class UI:
             dealerCards = dealerCards.copy()
             # TODO - still, for the future only add cards that haven't been added yet instead of rewriting
             if playerCards != self.playerCardNames:
-                print('playerCards != self.playerCardNames', playerCards, self.playerCardNames)
                 if len(playerCards) <= len(self.playerCardNames) and self.playerCardNames[:len(playerCards)] != playerCards:
                     self.removePlayerCards()
                 self.addPlayerCards(playerCards)
             
             if self.dealerCardHidden != dealerCardHidden and len(dealerCards) > 0:
-                print('dealer card hidden', dealerCardHidden)
                 self.dealerCardHidden = dealerCardHidden
                 self.addDealerCards(dealerCards, firstCardHidden=dealerCardHidden)
                 
             if dealerCards != self.dealerCardNames:
-                print('dealerCards != self.dealerCardNames', self.dealerCardNames, dealerCards)
                 if len(dealerCards) <= len(self.dealerCardNames) and self.dealerCardNames[:len(dealerCards)] != dealerCards:
                     self.removeDealerCards()
                 self.addDealerCards(dealerCards, firstCardHidden=self.dealerCardHidden)
@@ -563,13 +591,10 @@ class UI:
                 card = None
                 initialLen = len(self.dealerCardNames)
                 if i + 1 > initialLen:
-                    card = UI.Card((0, 0), (0, 0), name=c, img=c, hidden=True, ui=self.ui)
+                    card = UI.Card((0, 0), (0, 0), name=c, img='back_red', hidden=True, ui=self.ui)
                     if i == 0 and firstCardHidden:
-                        card = UI.Card((0, 0), (0, 0), name='back_red', img='back_red', ui=self.ui)
-                        self.addDealerCard(card, append=False)
-                        self.dealerCardNames.append(c)
-                    else:
-                        self.addDealerCard(card)
+                        card.dealerCard = True
+                    self.addDealerCard(card)
                 else:
                     card = self.dealerCards[i]
                     if i == 0 and self.firstCardHidden and not firstCardHidden:
@@ -673,6 +698,7 @@ class UI:
         if self.game.status in ['waiting']:
             self.startButton.blit()
             self.statsButton.blit()
+        if self.game.status == 'betting':
             self.bettingChips.update(dt)
       
         self.texts.render()
