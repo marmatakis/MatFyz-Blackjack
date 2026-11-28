@@ -6,12 +6,12 @@
 
 
 <img src="./assets/screenshots/screenshot.png" alt="table" style="border-radius: 10px" width="400">
-<br><br>
+<br>
 <!-- <br> -->
 <!-- <img src="./assets/sprites/cards/SJ.png" width="150">
 <img src="./assets/sprites/cards/D10.png" width="150">
 <img src="./assets/sprites/cards/CA.png" width="150"> -->
-<img src="./assets/sprites/cards/back_red.png" width="50"><img src="./assets/sprites/cards/back_blue.png" width="50"><br>
+
 <img src="./assets/sprites/cards/CQ.png" width="50"><img src="./assets/sprites/cards/CJ.png" width="50"><img src="./assets/sprites/cards/CA.png" width="50"><img src="./assets/sprites/cards/C2.png" width="50"><img src="./assets/sprites/cards/C3.png" width="50"><img src="./assets/sprites/cards/C4.png" width="50"><img src="./assets/sprites/cards/C5.png" width="50"><img src="./assets/sprites/cards/C6.png" width="50"><img src="./assets/sprites/cards/C7.png" width="50"><img src="./assets/sprites/cards/C8.png" width="50"><img src="./assets/sprites/cards/C9.png" width="50"><img src="./assets/sprites/cards/C10.png" width="50"><br>
 <img src="./assets/sprites/cards/DQ.png" width="50"><img src="./assets/sprites/cards/DJ.png" width="50"><img src="./assets/sprites/cards/DA.png" width="50"><img src="./assets/sprites/cards/D2.png" width="50"><img src="./assets/sprites/cards/D3.png" width="50"><img src="./assets/sprites/cards/D4.png" width="50"><img src="./assets/sprites/cards/D5.png" width="50"><img src="./assets/sprites/cards/D6.png" width="50"><img src="./assets/sprites/cards/D7.png" width="50"><img src="./assets/sprites/cards/D8.png" width="50"><img src="./assets/sprites/cards/D9.png" width="50"><img src="./assets/sprites/cards/D10.png" width="50"><br>
 <img src="./assets/sprites/cards/SQ.png" width="50"><img src="./assets/sprites/cards/SJ.png" width="50"><img src="./assets/sprites/cards/SA.png" width="50"><img src="./assets/sprites/cards/S2.png" width="50"><img src="./assets/sprites/cards/S3.png" width="50"><img src="./assets/sprites/cards/S4.png" width="50"><img src="./assets/sprites/cards/S5.png" width="50"><img src="./assets/sprites/cards/S6.png" width="50"><img src="./assets/sprites/cards/S7.png" width="50"><img src="./assets/sprites/cards/S8.png" width="50"><img src="./assets/sprites/cards/S9.png" width="50"><img src="./assets/sprites/cards/S10.png" width="50"><br>
